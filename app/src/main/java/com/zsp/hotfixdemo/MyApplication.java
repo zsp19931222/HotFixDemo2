@@ -21,6 +21,6 @@ public class MyApplication extends Application {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
-        FixDexUtils.loadFixedDex(this, Environment.getExternalStorageDirectory());
+//        FixDexUtils.loadFixedDex(this, Environment.getExternalStorageDirectory());
     }
 }

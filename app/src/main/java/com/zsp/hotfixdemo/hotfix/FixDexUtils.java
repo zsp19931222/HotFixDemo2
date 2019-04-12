@@ -14,6 +14,13 @@ import dalvik.system.PathClassLoader;
  * 热修复工具(只认后缀是dex、apk、jar、zip的补丁)
  * author：Andy on 2019/4/9 0009 10:51
  * email：zsp872126510@gmail.com
+ *
+ * 步骤：
+ * 1、从网络下载补丁包
+ * 2、解压获取到修复好的.dex文件
+ * 3、加载补丁
+ * 4、合并之前的dex
+ * 5、重写给DexPathList里面的Element[] dexElements赋值
  */
 public class FixDexUtils {
 
@@ -84,15 +91,18 @@ public class FixDexUtils {
                         pathLoader// 父类加载器
                 );
                 // 3.合并
-                Object dexPathList = getPathList(dexLoader);
-                Object pathPathList = getPathList(pathLoader);
-                Object leftDexElements = getDexElements(dexPathList);
-                Object rightDexElements = getDexElements(pathPathList);
+                //先获取到dexClassLoader里面的DexPathList类型的pathList
+                Object myDexPathList = getPathList(dexLoader);
+                //通过DexPathList拿到dexElements对象
+                Object myDexElements = getDexElements(myDexPathList);
+                //拿到应用程序使用的类加载器的pathList
+                Object systemPathPathList = getPathList(pathLoader);
+                //获取到系统的dexElements对象
+                Object systemDexElements = getDexElements(systemPathPathList);
                 // 合并完成
-                Object dexElements = combineArray(leftDexElements, rightDexElements);
+                Object newDexElements = combineArray(myDexElements, systemDexElements);
                 // 重写给PathList里面的Element[] dexElements;赋值
-                Object pathList = getPathList(pathLoader);
-                setField(pathList, pathList.getClass(), "dexElements", dexElements);
+                setField(systemPathPathList, systemPathPathList.getClass(), "dexElements", newDexElements);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -135,14 +145,22 @@ public class FixDexUtils {
     /**
      * 数组合并
      */
-    private static Object combineArray(Object arrayLhs, Object arrayRhs) {
-        Class<?> componentType = arrayLhs.getClass().getComponentType();
-        int i = Array.getLength(arrayLhs);// 得到左数组长度（补丁数组）
-        int j = Array.getLength(arrayRhs);// 得到原dex数组长度
-        int k = i + j;// 得到总数组长度（补丁数组+原dex数组）
-        Object result = Array.newInstance(componentType, k);// 创建一个类型为componentType，长度为k的新数组
-        System.arraycopy(arrayLhs, 0, result, 0, i);
-        System.arraycopy(arrayRhs, 0, result, i, j);
-        return result;
+    private static Object combineArray(Object myDexElements, Object systemDexElements) {
+        //新建一个Element[]类型的dexElements实例
+        Class<?> sigleElementClazz = myDexElements.getClass().getComponentType();
+        int systemLength = Array.getLength(systemDexElements);
+        int myLength = Array.getLength(myDexElements);
+        int newSystenLength = systemLength + myLength;
+        Object newElementsArray = Array.newInstance(sigleElementClazz, newSystenLength);
+
+        //按着先加入dex包里面elment的规律依次加入所有的element，这样就可以保证classLoader先拿到的是修复包里面的Test类。
+        for (int i = 0; i < newSystenLength; i++) {
+            if (i < myLength) {
+                Array.set(newElementsArray, i, Array.get(myDexElements, i));
+            }else {
+                Array.set(newElementsArray, i, Array.get(systemDexElements, i - myLength));
+            }
+        }
+        return newElementsArray;
     }
 }

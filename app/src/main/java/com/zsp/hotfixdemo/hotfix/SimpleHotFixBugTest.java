@@ -9,7 +9,7 @@ import android.widget.Toast;
 public class SimpleHotFixBugTest {
     public void getBug(Context context) {
         int i = 10;
-        int a = 2;
+        int a = 3;
         Toast.makeText(context, "HotFix:" + i / a, Toast.LENGTH_SHORT).show();
     }
 }
